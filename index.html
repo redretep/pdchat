@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PidiChat - P2P Chat</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #121212;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+    #roomLabel {
+      font-size: 1rem;
+      color: #aaa;
+      margin-bottom: 1rem;
+    }
+    #chatLog {
+      width: 100%;
+      max-width: 600px;
+      height: 300px;
+      background: #1e1e1e;
+      color: white;
+      border: none;
+      padding: 1rem;
+      resize: none;
+      margin-top: 1rem;
+      overflow-y: auto;
+    }
+    #message {
+      width: 100%;
+      max-width: 600px;
+      padding: 0.5rem;
+      background: #1e1e1e;
+      color: white;
+      border: none;
+      margin-top: 0.5rem;
+    }
+    #roomInput {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>PidiChat</h1>
+  <div id="roomLabel">Not connected</div>
+  <input id="roomInput" placeholder="Enter room name" />
+  <button onclick="connect()">Connect</button>
+
+  <textarea id="chatLog" readonly></textarea>
+  <input id="message" placeholder="Type message and press Enter..." onkeydown="if(event.key==='Enter') send()" />
+
+  <script type="module">
+    import * as Y from 'https://cdn.jsdelivr.net/npm/yjs@13/+esm'
+    import { WebrtcProvider } from 'https://cdn.jsdelivr.net/npm/y-webrtc@10/+esm'
+
+    let yArray, chatLog, doc
+
+    const chatLogElem = document.getElementById('chatLog')
+    const roomLabel = document.getElementById('roomLabel')
+
+    function renderChat() {
+      if (!yArray) return
+      chatLogElem.value = yArray.toArray().join('\n')
+      chatLogElem.scrollTop = chatLogElem.scrollHeight
+    }
+
+    function appendMessage(msg) {
+      if (yArray) {
+        const timestamp = new Date().toLocaleTimeString()
+        yArray.push([`[${timestamp}] ${msg}`])
+      }
+    }
+
+    window.connect = () => {
+      const roomName = document.getElementById('roomInput').value.trim()
+      if (!roomName) return alert('Please enter a room name.')
+
+      roomLabel.textContent = `Room: ${roomName}`
+
+      doc = new Y.Doc()
+      const provider = new WebrtcProvider(roomName, doc)
+
+      yArray = doc.getArray('messages')
+      yArray.observeDeep(() => {
+        renderChat()
+      })
+
+      renderChat()
+    }
+
+    window.send = () => {
+      const msgInput = document.getElementById('message')
+      const msg = msgInput.value.trim()
+      if (msg) {
+        appendMessage(`You: ${msg}`)
+        msgInput.value = ''
+      }
+    }
+  </script>
+</body>
+</html>
