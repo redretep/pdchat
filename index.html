@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PDChat</title>
+  <title>PidiChat - Full</title>
   <style>
     body {
       font-family: sans-serif;
@@ -13,7 +13,6 @@
       align-items: center;
       padding: 2rem;
     }
-    h1 { margin: 0; }
     input, button, textarea {
       background: #1e1e1e;
       color: white;
@@ -25,78 +24,151 @@
     textarea {
       width: 100%;
       max-width: 600px;
-      height: 300px;
+      height: 250px;
       resize: none;
     }
-    #chat-area {
-      display: none;
-      flex-direction: column;
-      align-items: center;
+    #messages {
       width: 100%;
+      max-width: 600px;
+      height: 300px;
+      overflow-y: auto;
+      background: #1e1e1e;
+      padding: 1rem;
+      margin: 1rem 0;
     }
-    #roomLabel {
-      margin-bottom: 0.5rem;
+    .msg {
+      margin-bottom: 1rem;
+      word-wrap: break-word;
+    }
+    .msg img {
+      max-width: 100%;
+      border-radius: 8px;
+    }
+    audio {
+      margin-top: 0.5rem;
     }
   </style>
 </head>
 <body>
-  <h1>PidiChat</h1>
+  <h1>PidiChat 🎤🖼️</h1>
   <div id="setup">
     <input id="nickname" placeholder="Enter your nickname" />
     <input id="roomInput" placeholder="Enter room name" />
     <button onclick="connect()">Connect</button>
   </div>
 
-  <div id="chat-area">
+  <div id="chat-area" style="display:none;">
     <div id="roomLabel"></div>
-    <textarea id="chatLog" readonly></textarea>
-    <input id="message" placeholder="Type message and press Enter" onkeydown="if(event.key==='Enter') send()" />
+    <div id="messages"></div>
+
+    <textarea id="message" placeholder="Type a message..."></textarea>
+    <button onclick="send()">Send Text</button>
+    <br />
+    <input type="file" id="imageInput" accept="image/*" />
+    <button onclick="sendImage()">Send Image</button>
+    <br />
+    <button onclick="recordVoice()">🎙️ Record Voice</button>
+    <button onclick="stopRecording()">🛑 Stop</button>
   </div>
 
-  <!-- Load Yjs and y-webrtc from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/yjs@13.6.9/dist/yjs.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/y-webrtc@10.3.6/dist/y-webrtc.js"></script>
 
   <script>
-    let yArray, doc, nickname, room
-    const chatLog = document.getElementById('chatLog')
+    let yArray, doc, nickname, room, recorder, audioChunks = []
+
+    const messageContainer = document.getElementById('messages')
 
     function renderChat() {
+      messageContainer.innerHTML = ''
       const messages = yArray.toArray()
-      chatLog.value = messages.join('\n')
-      chatLog.scrollTop = chatLog.scrollHeight
-      // Save locally
+      messages.forEach(msg => {
+        const div = document.createElement('div')
+        div.className = 'msg'
+
+        if (msg.type === 'text') {
+          div.textContent = `[${msg.time}] ${msg.from}: ${msg.content}`
+        } else if (msg.type === 'image') {
+          div.innerHTML = `[${msg.time}] ${msg.from}: <br/><img src="${msg.content}" />`
+        } else if (msg.type === 'audio') {
+          const audio = document.createElement('audio')
+          audio.controls = true
+          audio.src = msg.content
+          div.innerHTML = `[${msg.time}] ${msg.from}:<br/>`
+          div.appendChild(audio)
+        }
+
+        messageContainer.appendChild(div)
+        messageContainer.scrollTop = messageContainer.scrollHeight
+      })
       localStorage.setItem(`pidichat-history-${room}`, JSON.stringify(messages))
+    }
+
+    function sendText(content) {
+      const time = new Date().toLocaleTimeString()
+      yArray.push([{ type: 'text', from: nickname, time, content }])
     }
 
     function send() {
       const input = document.getElementById('message')
       const msg = input.value.trim()
-      if (msg && yArray) {
-        const time = new Date().toLocaleTimeString()
-        yArray.push([`[${time}] ${nickname}: ${msg}`])
+      if (msg) {
+        sendText(msg)
         input.value = ''
       }
+    }
+
+    function sendImage() {
+      const file = document.getElementById('imageInput').files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = function (e) {
+        const base64 = e.target.result
+        const time = new Date().toLocaleTimeString()
+        yArray.push([{ type: 'image', from: nickname, time, content: base64 }])
+      }
+      reader.readAsDataURL(file)
+    }
+
+    function recordVoice() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          recorder = new MediaRecorder(stream)
+          recorder.ondataavailable = e => audioChunks.push(e.data)
+          recorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' })
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              const base64 = reader.result
+              const time = new Date().toLocaleTimeString()
+              yArray.push([{ type: 'audio', from: nickname, time, content: base64 }])
+              audioChunks = []
+            }
+            reader.readAsDataURL(blob)
+          }
+          recorder.start()
+        }).catch(err => alert('Mic error: ' + err))
+    }
+
+    function stopRecording() {
+      if (recorder) recorder.stop()
     }
 
     function connect() {
       nickname = document.getElementById('nickname').value.trim()
       room = document.getElementById('roomInput').value.trim()
-      if (!nickname || !room) return alert("Please enter both nickname and room.")
+      if (!nickname || !room) return alert("Enter both nickname and room name.")
 
       document.getElementById('roomLabel').textContent = `Room: ${room}`
       document.getElementById('setup').style.display = 'none'
-      document.getElementById('chat-area').style.display = 'flex'
+      document.getElementById('chat-area').style.display = 'block'
 
       doc = new Y.Doc()
       const provider = new WebrtcProvider(room, doc)
-
       yArray = doc.getArray('messages')
-      yArray.observe(() => {
-        renderChat()
-      })
 
-      // Load local history
+      yArray.observe(() => renderChat())
+
       const stored = localStorage.getItem(`pidichat-history-${room}`)
       if (stored) {
         try {
