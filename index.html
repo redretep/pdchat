@@ -2,106 +2,110 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PidiChat - P2P Chat</title>
+  <title>PidiChat</title>
   <style>
     body {
       font-family: sans-serif;
-      background-color: #121212;
+      background: #121212;
       color: white;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 2rem;
     }
-    h1 {
-      margin-bottom: 0.5rem;
-    }
-    #roomLabel {
+    h1 { margin: 0; }
+    input, button, textarea {
+      background: #1e1e1e;
+      color: white;
+      border: none;
+      padding: 0.5rem;
+      margin: 0.25rem;
       font-size: 1rem;
-      color: #aaa;
-      margin-bottom: 1rem;
     }
-    #chatLog {
+    textarea {
       width: 100%;
       max-width: 600px;
       height: 300px;
-      background: #1e1e1e;
-      color: white;
-      border: none;
-      padding: 1rem;
       resize: none;
-      margin-top: 1rem;
-      overflow-y: auto;
     }
-    #message {
+    #chat-area {
+      display: none;
+      flex-direction: column;
+      align-items: center;
       width: 100%;
-      max-width: 600px;
-      padding: 0.5rem;
-      background: #1e1e1e;
-      color: white;
-      border: none;
-      margin-top: 0.5rem;
     }
-    #roomInput {
-      margin-bottom: 1rem;
+    #roomLabel {
+      margin-bottom: 0.5rem;
     }
   </style>
 </head>
 <body>
   <h1>PidiChat</h1>
-  <div id="roomLabel">Not connected</div>
-  <input id="roomInput" placeholder="Enter room name" />
-  <button onclick="connect()">Connect</button>
+  <div id="setup">
+    <input id="nickname" placeholder="Enter your nickname" />
+    <input id="roomInput" placeholder="Enter room name" />
+    <button onclick="connect()">Connect</button>
+  </div>
 
-  <textarea id="chatLog" readonly></textarea>
-  <input id="message" placeholder="Type message and press Enter..." onkeydown="if(event.key==='Enter') send()" />
+  <div id="chat-area">
+    <div id="roomLabel"></div>
+    <textarea id="chatLog" readonly></textarea>
+    <input id="message" placeholder="Type message and press Enter" onkeydown="if(event.key==='Enter') send()" />
+  </div>
 
-  <script type="module">
-    import * as Y from 'https://cdn.jsdelivr.net/npm/yjs@13/+esm'
-    import { WebrtcProvider } from 'https://cdn.jsdelivr.net/npm/y-webrtc@10/+esm'
+  <!-- Load Yjs and y-webrtc from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/yjs@13.6.9/dist/yjs.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/y-webrtc@10.3.6/dist/y-webrtc.js"></script>
 
-    let yArray, chatLog, doc
-
-    const chatLogElem = document.getElementById('chatLog')
-    const roomLabel = document.getElementById('roomLabel')
+  <script>
+    let yArray, doc, nickname, room
+    const chatLog = document.getElementById('chatLog')
 
     function renderChat() {
-      if (!yArray) return
-      chatLogElem.value = yArray.toArray().join('\n')
-      chatLogElem.scrollTop = chatLogElem.scrollHeight
+      const messages = yArray.toArray()
+      chatLog.value = messages.join('\n')
+      chatLog.scrollTop = chatLog.scrollHeight
+      // Save locally
+      localStorage.setItem(`pidichat-history-${room}`, JSON.stringify(messages))
     }
 
-    function appendMessage(msg) {
-      if (yArray) {
-        const timestamp = new Date().toLocaleTimeString()
-        yArray.push([`[${timestamp}] ${msg}`])
+    function send() {
+      const input = document.getElementById('message')
+      const msg = input.value.trim()
+      if (msg && yArray) {
+        const time = new Date().toLocaleTimeString()
+        yArray.push([`[${time}] ${nickname}: ${msg}`])
+        input.value = ''
       }
     }
 
-    window.connect = () => {
-      const roomName = document.getElementById('roomInput').value.trim()
-      if (!roomName) return alert('Please enter a room name.')
+    function connect() {
+      nickname = document.getElementById('nickname').value.trim()
+      room = document.getElementById('roomInput').value.trim()
+      if (!nickname || !room) return alert("Please enter both nickname and room.")
 
-      roomLabel.textContent = `Room: ${roomName}`
+      document.getElementById('roomLabel').textContent = `Room: ${room}`
+      document.getElementById('setup').style.display = 'none'
+      document.getElementById('chat-area').style.display = 'flex'
 
       doc = new Y.Doc()
-      const provider = new WebrtcProvider(roomName, doc)
+      const provider = new WebrtcProvider(room, doc)
 
       yArray = doc.getArray('messages')
-      yArray.observeDeep(() => {
+      yArray.observe(() => {
         renderChat()
       })
 
-      renderChat()
-    }
-
-    window.send = () => {
-      const msgInput = document.getElementById('message')
-      const msg = msgInput.value.trim()
-      if (msg) {
-        appendMessage(`You: ${msg}`)
-        msgInput.value = ''
+      // Load local history
+      const stored = localStorage.getItem(`pidichat-history-${room}`)
+      if (stored) {
+        try {
+          const messages = JSON.parse(stored)
+          messages.forEach(m => yArray.push([m]))
+        } catch {}
       }
+
+      renderChat()
     }
   </script>
 </body>
