@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PidiChat 2.0</title>
+  <title>PidiChat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
   <style>
@@ -131,7 +131,6 @@
   </style>
 </head>
 <body>
-
   <h1>PidiChat</h1>
 
   <div id="setup">
@@ -147,8 +146,8 @@
     <div id="input-area">
       <button class="floating-btn" onclick="document.getElementById('imageInput').click()">📎</button>
       <input type="file" id="imageInput" accept="image/*" style="display:none;" onchange="sendImage()" />
-      <textarea id="textMsg" placeholder="Type a message..." onkeydown="checkEnter(event)"></textarea>
-      <button class="floating-btn" onclick="send()">➤</button>
+      <textarea id="textMsg" placeholder="Type a message..."></textarea>
+      <button class="floating-btn" id="sendBtn">➤</button>
       <button class="floating-btn" id="micBtn" onmousedown="recordVoice()" onmouseup="stopRecording()">🎤</button>
     </div>
   </div>
@@ -182,7 +181,6 @@
           div.appendChild(audio)
         }
 
-        // Emoji reactions
         const bar = document.createElement('div')
         bar.className = 'emoji-bar'
         for (let emoji of ['❤️', '🔥', '😂', '👍', '👀']) {
@@ -195,7 +193,6 @@
           }
           bar.appendChild(btn)
         }
-
         div.appendChild(bar)
         container.appendChild(div)
       })
@@ -210,13 +207,6 @@
         const time = new Date().toLocaleTimeString()
         yArray.push([{ type: 'text', from: nickname, time, content: msg }])
         input.value = ''
-      }
-    }
-
-    function checkEnter(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        send()
       }
     }
 
@@ -269,6 +259,15 @@
       yArray = doc.getArray('messages')
       yArray.observe(() => renderChat())
       renderChat()
+
+      document.getElementById('textMsg').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault()
+          send()
+        }
+      })
+
+      document.getElementById('sendBtn').addEventListener('click', send)
     }
   </script>
 </body>
