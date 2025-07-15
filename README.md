@@ -37,3 +37,4 @@ cd pidichat
 
 # 2. Open in browser
 open index.html
+or go to <redretep.github.io/pdchat>
